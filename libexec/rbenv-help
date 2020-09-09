@@ -147,6 +147,36 @@ print_usage() {
   [ -z "$usage" ] || echo "$usage"
 }
 
+# Is it a binary file? Seems to work on macOS and Ubuntu at least. If anyone 
+# knows a better way I'm all ears.
+is_binary() {
+  local filename="$1"
+  if [[ "$(file --mime "$filename")" ==  *charset=binary ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Hand-off to a binary plugin, passing a `--help` option. 
+delegate_to_binary() {
+  local filename="$1"
+  if [ -n "$usage" ]; then
+    # IDK about this... it's weird. Could exec with only `--usage`, but that
+    # feels like more of a reach than expecting an executable not to do
+    # anything dumb when handed just `--help`. Could also just not support 
+    # `--usage`. Or `"$("$filename" --help)"` and try to extract usage text, but
+    # that seems overely complex and fragile.
+    exec "$filename" --help --usage
+  else
+    # I guess I went with `exec` to leave it totally up to the plugin binary.
+    # Other consideration was shelling-out and capturing, which has the
+    # advantage of checking the exit code and prining some feedback if the 
+    # plugin binary doesn't write to stdout and exit 0.
+    exec "$filename" --help
+  fi
+}
+
 unset usage
 if [ "$1" = "--usage" ]; then
   usage="1"
@@ -164,11 +194,16 @@ if [ -z "$1" ] || [ "$1" == "rbenv" ]; then
   echo "For full documentation, see: https://github.com/rbenv/rbenv#readme"
 else
   command="$1"
-  if [ -n "$(command_path "$command")" ]; then
-    if [ -n "$usage" ]; then
-      print_usage "$command"
+  filename="$(command_path "$1")"
+  if [ -n "$filename" ]; then
+    if is_binary "$filename"; then
+      delegate_to_binary "$filename"
     else
-      print_help "$command"
+      if [ -n "$usage" ]; then
+        print_usage "$command"
+      else
+        print_help "$command"
+      fi
     fi
   else
     echo "rbenv: no such command \`$command'" >&2
