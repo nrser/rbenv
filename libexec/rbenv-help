@@ -167,7 +167,10 @@ delegate_to_binary() {
     # anything dumb when handed just `--help`. Could also just not support 
     # `--usage`. Or `"$("$filename" --help)"` and try to extract usage text, but
     # that seems overely complex and fragile.
-    exec "$filename" --help --usage
+    # exec "$filename" --help --usage
+    
+    # Ok, switched:
+    exec "$filename" --usage
   else
     # I guess I went with `exec` to leave it totally up to the plugin binary.
     # Other consideration was shelling-out and capturing, which has the
